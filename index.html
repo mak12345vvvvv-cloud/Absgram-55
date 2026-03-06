@@ -3,10 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AbSgram HD 8.0 — Полный функционал с глобальными звонками</title>
+    <title>AbSgram HD — с видео и push-уведомлениями</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#FF6B35">
+    
+    <!-- OneSignal SDK с вашим ключом -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        OneSignalDeferred.push(async function(OneSignal) {
+            await OneSignal.init({
+                appId: "33e5e9c7-33ae-457c-b759-9fcd28e77db4",
+                safari_web_id: "web.onesignal.auto.33e5e9c7-33ae-457c-b759-9fcd28e77db4",
+                notifyButton: {
+                    enable: false,
+                },
+                allowLocalhostAsSecureOrigin: true,
+                serviceWorkerParam: { scope: '/' },
+                serviceWorkerPath: 'OneSignalSDKWorker.js',
+            });
+            
+            // Сохраняем OneSignal в глобальную переменную
+            window.oneSignal = OneSignal;
+        });
+    </script>
 </head>
 <body>
     <!-- ЭКРАН АВТОРИЗАЦИИ -->
@@ -15,7 +36,7 @@
             <div class="logo">
                 <div class="logo-icon">A</div>
                 <h2>AbSgram</h2>
-                <p>Групповые звонки HD</p>
+                <p>С видео и push</p>
             </div>
             
             <div id="loginForm">
@@ -64,12 +85,15 @@
     <div id="chatsScreen" class="screen hidden">
         <div class="header">
             <div class="header-title">AbSgram</div>
-            <button class="btn" id="profileBtn">👤 Профиль</button>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn" id="pushStatusBtn" style="background: #2a2a2a; border: 1px solid #FF6B35;">🔔</button>
+                <button class="btn" id="profileBtn">👤 Профиль</button>
+            </div>
         </div>
         
         <div class="search-container">
             <span class="search-icon">🔍</span>
-            <input type="text" class="search-input" id="searchUsersInput" placeholder="Поиск пользователей, каналов или ссылка..." autocomplete="off">
+            <input type="text" class="search-input" id="searchUsersInput" placeholder="Поиск..." autocomplete="off">
         </div>
         
         <div class="chats-list" id="chatsList">
@@ -88,17 +112,6 @@
             <div style="flex: 1; padding: 0 8px;">
                 <div id="chatTitle" style="font-weight: bold; font-size: 15px;"></div>
                 <div id="chatStatus" style="font-size: 12px;"></div>
-                <div id="typingStatus" class="typing-indicator hidden">
-                    <span>печатает</span>
-                    <div class="typing-dots">
-                        <div class="typing-dot"></div>
-                        <div class="typing-dot"></div>
-                        <div class="typing-dot"></div>
-                    </div>
-                </div>
-                <div id="callRingingStatus" class="call-ringing-indicator hidden">
-                    🔔 Входящий звонок...
-                </div>
             </div>
             <button class="btn" id="groupInfoBtn" style="display: none;">👥 Инфо</button>
             <button class="btn" id="channelInfoBtn" style="display: none;">📢 Инфо</button>
@@ -106,29 +119,17 @@
                 <button class="video-call-btn" id="videoCallBtn" title="HD Видеозвонок" style="display: none;">📹</button>
                 <button class="call-btn" id="callBtn" title="HD Аудиозвонок" style="display: none;">📞</button>
                 <button class="disable-call-btn" id="disableCallBtn" title="Отключить звонки" style="display: none;">🔕</button>
-                <button class="contact-options-btn" id="contactOptionsBtn" title="Опции контакта" style="display: none;">⋮</button>
+                <button class="contact-options-btn" id="contactOptionsBtn" title="Опции" style="display: none;">⋮</button>
             </div>
-        </div>
-        
-        <div class="search-messages-container" id="searchMessagesContainer">
-            <input type="text" class="search-messages-input" id="searchMessagesInput" placeholder="🔍 Поиск в чате...">
-            <span class="search-messages-count" id="searchMessagesCount"></span>
-            <button class="search-messages-btn" id="prevSearchBtn">▲</button>
-            <button class="search-messages-btn" id="nextSearchBtn">▼</button>
         </div>
 
         <div id="replyingIndicator" class="replying-indicator hidden">
-            <span>Ответ на сообщение: <span id="replyToText">...</span></span>
+            <span>Ответ на: <span id="replyToText">...</span></span>
             <span class="cancel-reply" id="cancelReplyBtn">×</span>
         </div>
         
-        <div class="messages-container" id="messagesContainer">
-            <div class="empty-state">
-                <div class="icon">💭</div>
-                <p>Начните общение!</p>
-                <p style="font-size: 12px; margin-top: 8px;">Отправьте первое сообщение</p>
-            </div>
-        </div>
+        <div class="messages-container" id="messagesContainer"></div>
+        
         <div class="message-input-container">
             <div class="compact-controls">
                 <button class="attach-btn" id="attachBtn">📎</button>
@@ -160,12 +161,23 @@
                 </div>
                 <div class="profile-name" id="profileName"></div>
                 <div class="profile-username" id="profileUsername"></div>
-                <div class="profile-status" id="profileStatus">
-                    <span class="status-dot"></span>
-                    <span>online</span>
-                </div>
+                <div class="profile-status" id="profileStatus">🟢 online</div>
             </div>
             
+            <div class="info-section">
+                <h3>🔔 Push-уведомления</h3>
+                <div class="info-item">
+                    <div class="info-label">Статус</div>
+                    <div class="info-value" id="pushStatus">❌ Не активны</div>
+                </div>
+                <button class="btn" style="width: 100%; margin-top: 8px;" id="enablePushBtn">
+                    🔔 Включить уведомления
+                </button>
+                <button class="btn btn-secondary" style="width: 100%; margin-top: 8px;" id="testPushBtn">
+                    📨 Тест уведомления
+                </button>
+            </div>
+
             <div class="info-section">
                 <h3>Информация</h3>
                 <div class="info-item">
@@ -173,125 +185,17 @@
                     <div class="info-value" id="profileUsernameValue"></div>
                 </div>
                 <div class="info-item">
-                    <div class="info-label">ID пользователя</div>
+                    <div class="info-label">ID</div>
                     <div class="info-value" id="profileId"></div>
                 </div>
-                <div class="info-item">
-                    <div class="info-label">Дата регистрации</div>
-                    <div class="info-value" id="profileDate"></div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Всего чатов</div>
-                    <div class="info-value" id="profileChatsCount">0</div>
-                </div>
-            </div>
-
-            <div class="info-section">
-                <h3>📝 Моя история</h3>
-                <div id="profilePostsList" class="group-members-list" style="justify-content: flex-start; min-height: 50px;">
-                    <div style="color: var(--text-secondary); text-align: center; width: 100%;">У вас пока нет постов</div>
-                </div>
-                <button class="btn" style="width: 100%; margin-top: 8px;" id="createPostBtn">➕ Добавить пост</button>
             </div>
             
             <button class="btn" style="width: 100%; margin-top: 15px;" id="editNameBtn">
                 ✏️ Изменить имя
             </button>
             <button class="btn btn-secondary" style="width: 100%; margin-top: 8px;" id="logoutBtn">
-                🚪 Выйти из аккаунта
+                🚪 Выйти
             </button>
-        </div>
-    </div>
-    
-    <!-- ПРОСМОТР ПРОФИЛЯ ПОЛЬЗОВАТЕЛЯ -->
-    <div id="userProfileScreen" class="screen hidden">
-        <div class="header">
-            <button class="back-btn" id="backFromUserProfileBtn">←</button>
-            <div class="header-title">Профиль пользователя</div>
-            <div style="width: 40px;"></div>
-        </div>
-        <div class="user-profile-view" id="userProfileContent">
-            <div class="empty-state">
-                <div class="loading"></div>
-                <p style="margin-top: 8px;">Загрузка профиля...</p>
-            </div>
-        </div>
-    </div>
-    
-    <!-- ЭКРАН ВЫБОРА ТИПА ЗВОНКА -->
-    <div id="callTypeModal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-title">Выберите тип звонка</div>
-            
-            <div class="call-type-selector">
-                <div class="call-type-option" id="audioCallOption" data-type="audio">
-                    <div class="call-type-icon">📞</div>
-                    <div class="call-type-name">HD Аудиозвонок</div>
-                </div>
-                <div class="call-type-option" id="videoCallOption" data-type="video">
-                    <div class="call-type-icon">📹</div>
-                    <div class="call-type-name">HD Видеозвонок</div>
-                </div>
-            </div>
-            
-            <div class="modal-actions">
-                <button class="btn btn-secondary" style="flex: 1;" id="cancelCallTypeBtn">Отмена</button>
-                <button class="btn" style="flex: 1;" id="startCallWithTypeBtn">Начать звонок</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- ЭКРАН АКТИВНОГО ЗВОНКА -->
-    <div id="callActiveScreen" class="call-active-screen hidden">
-        <div class="call-active-header">
-            <span id="callTypeIcon">📞</span> HD Звонок
-            <div class="speaking-indicator" id="speakingIndicator"></div>
-            <div class="connection-quality" id="connectionQuality">📶 Соединение...</div>
-        </div>
-        
-        <div class="video-container" id="videoContainer" style="display: none;">
-            <video id="remoteVideo" class="remote-video" autoplay playsinline></video>
-            <video id="localVideo" class="local-video" autoplay playsinline muted></video>
-            <div class="call-controls">
-                <button class="call-active-action-btn mute-call-btn" id="muteCallBtnVideo" title="Выключить микрофон">
-                    🎤
-                </button>
-                <button class="call-active-action-btn end-call-active-btn" id="endCallActiveBtnVideo" title="Завершить звонок">
-                    📞
-                </button>
-                <button class="call-active-action-btn speaker-call-btn" id="speakerCallBtnVideo" title="Включить громкую связь">
-                    🔊
-                </button>
-                <button class="call-active-action-btn" id="videoToggleBtn" title="Выключить видео">
-                    📹
-                </button>
-            </div>
-        </div>
-        
-        <div id="audioCallContainer">
-            <div class="call-active-avatar" id="callActiveAvatar">
-                👤
-            </div>
-            <div class="call-active-name" id="callActiveName">
-                Иван Иванов
-            </div>
-            <div class="call-active-status" id="callActiveStatus">
-                Идет разговор...
-            </div>
-            <div class="call-active-timer" id="callActiveTimer">
-                00:00
-            </div>
-            <div class="call-active-actions">
-                <button class="call-active-action-btn mute-call-btn" id="muteCallBtnAudio" title="Выключить микрофон">
-                    🎤
-                </button>
-                <button class="call-active-action-btn end-call-active-btn" id="endCallActiveBtnAudio" title="Завершить звонок">
-                    📞
-                </button>
-                <button class="call-active-action-btn speaker-call-btn" id="speakerCallBtnAudio" title="Включить громкую связь">
-                    🔊
-                </button>
-            </div>
         </div>
     </div>
     
@@ -299,373 +203,97 @@
     <div id="avatarModal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-title">Сменить аватарку</div>
-            
             <div class="avatar-preview" id="avatarPreview"></div>
-            
             <div class="avatar-options">
-                <div class="avatar-option" style="background: #FF6B35;" data-color="#FF6B35" title="Оранжевый">A</div>
-                <div class="avatar-option" style="background: #FF8E53;" data-color="#FF8E53" title="Светло-оранжевый">B</div>
-                <div class="avatar-option" style="background: #FFB347;" data-color="#FFB347" title="Желто-оранжевый">C</div>
-                <div class="avatar-option" style="background: #FF7043;" data-color="#FF7043" title="Терракотовый">D</div>
-                <div class="avatar-option" style="background: #FF9E6D;" data-color="#FF9E6D" title="Персиковый">E</div>
-                <div class="avatar-option" style="background: #FFCC99;" data-color="#FFCC99" title="Песочный">F</div>
+                <div class="avatar-option" style="background: #FF6B35;" data-color="#FF6B35">A</div>
+                <div class="avatar-option" style="background: #FF8E53;" data-color="#FF8E53">B</div>
+                <div class="avatar-option" style="background: #FFB347;" data-color="#FFB347">C</div>
             </div>
-            
             <div class="avatar-upload-area" id="uploadAvatarBtn">
-                <div style="font-size: 26px; margin-bottom: 8px;">📁</div>
-                <div>Загрузить фотографию</div>
-                <div style="font-size: 11px; color: #aaa; margin-top: 5px;">JPG, PNG до 10MB</div>
+                <div style="font-size: 26px;">📁</div>
+                <div>Загрузить фото</div>
             </div>
-            
             <div class="modal-actions">
-                <button class="btn btn-secondary" style="flex: 1;" id="cancelAvatarBtn">Отмена</button>
-                <button class="btn" style="flex: 1;" id="saveAvatarBtn">Сохранить</button>
+                <button class="btn btn-secondary" id="cancelAvatarBtn">Отмена</button>
+                <button class="btn" id="saveAvatarBtn">Сохранить</button>
             </div>
         </div>
     </div>
     
-    <!-- МОДАЛКА ДЛЯ НОВОГО ЧАТА/ГРУППЫ/КАНАЛА -->
+    <!-- МОДАЛКА ДЛЯ НОВОГО ЧАТА -->
     <div id="newChatModal" class="modal hidden">
-        <div class="modal-content" style="max-height: 90vh; overflow-y: auto; padding-bottom: 30px;">
+        <div class="modal-content">
             <div class="modal-title">Новый чат</div>
-            
             <div class="modal-tabs">
                 <div class="modal-tab active" data-tab="single">Личный</div>
                 <div class="modal-tab" data-tab="group">Группа</div>
-                <div class="modal-tab" data-tab="channel">Канал</div>
             </div>
             
             <div id="singleTab" class="tab-content active">
-                <div class="search-container" style="border: none; padding: 0 0 10px 0;">
-                    <span class="search-icon" style="left: 15px;">🔍</span>
-                    <input type="text" class="search-input" id="singleSearchInput" placeholder="Поиск пользователей..." autocomplete="off">
-                </div>
-                <div id="singleSearchResults" class="users-list" style="padding: 0; max-height: 300px;"></div>
+                <input type="text" class="search-input" id="singleSearchInput" placeholder="Поиск...">
+                <div id="singleSearchResults" class="users-list"></div>
             </div>
             
             <div id="groupTab" class="tab-content">
-                <div class="input-group">
-                    <label for="groupName">Название группы</label>
-                    <input type="text" id="groupName" placeholder="Введите название группы">
-                </div>
-                
-                <div class="input-group">
-                    <label>Аватар группы</label>
-                    <div class="avatar-upload-area" id="uploadGroupAvatarBtn">
-                        <div style="font-size: 26px; margin-bottom: 8px;">📁</div>
-                        <div>Загрузить аватар</div>
-                        <div style="font-size: 11px; color: #aaa; margin-top: 5px;">JPG, PNG до 10MB</div>
-                    </div>
-                    <div class="avatar-preview" id="groupAvatarPreview" style="width: 70px; height: 70px; margin: 8px auto; background-size: cover; background-position: center;"></div>
-                </div>
-                
-                <div class="input-group">
-                    <label>Поиск участников</label>
-                    <span class="search-icon" style="left: 25px;">🔍</span>
-                    <input type="text" class="search-input" id="groupSearchInput" placeholder="Поиск пользователей..." autocomplete="off">
-                </div>
-                
-                <div id="groupSearchResults" class="users-list" style="padding: 0; max-height: 150px; margin-bottom: 10px;"></div>
-                
-                <div class="input-group">
-                    <label>Выбранные участники (<span id="memberCount">0</span>)</label>
-                    <div class="group-members" id="groupMembersList">
-                        <div style="color: var(--text-secondary); text-align: center; padding: 15px;">
-                            Добавьте участников из списка выше
-                        </div>
-                    </div>
-                </div>
-                
-                <button class="btn create-group-btn" id="createGroupBtn" disabled>
-                    👥 Создать группу
-                </button>
-            </div>
-            
-            <div id="channelTab" class="tab-content">
-                <div class="input-group">
-                    <label for="channelName">Название канала</label>
-                    <input type="text" id="channelName" placeholder="Введите название канала">
-                </div>
-                <div class="input-group">
-                    <label for="channelDescription">Описание (необязательно)</label>
-                    <input type="text" id="channelDescription" placeholder="О чем ваш канал?">
-                </div>
-                
-                <div class="input-group">
-                    <label>Аватар канала</label>
-                    <div class="avatar-upload-area" id="uploadChannelAvatarBtn">
-                        <div style="font-size: 26px; margin-bottom: 8px;">📁</div>
-                        <div>Загрузить аватар</div>
-                        <div style="font-size: 11px; color: #aaa; margin-top: 5px;">JPG, PNG до 10MB</div>
-                    </div>
-                    <div class="avatar-preview" id="channelAvatarPreview" style="width: 70px; height: 70px; margin: 8px auto; background-size: cover; background-position: center;"></div>
-                </div>
-                
-                <div class="input-group">
-                    <label>Тип канала</label>
-                    <select id="channelType" class="search-input" style="padding: 12px;">
-                        <option value="public">🔓 Публичный (все могут найти)</option>
-                        <option value="private">🔒 Приватный (только по ссылке)</option>
-                    </select>
-                </div>
-                <button class="btn create-group-btn" id="createChannelBtn" style="margin-top: 15px;">
-                    📢 Создать канал
-                </button>
+                <input type="text" id="groupName" placeholder="Название группы">
+                <input type="text" class="search-input" id="groupSearchInput" placeholder="Добавить участников...">
+                <div id="groupSearchResults" class="users-list"></div>
+                <div id="groupMembersList" class="group-members"></div>
+                <button class="btn create-group-btn" id="createGroupBtn" disabled>Создать группу</button>
             </div>
             
             <div class="modal-actions">
-                <button class="btn btn-secondary" style="flex: 1;" id="cancelGroupBtn">Отмена</button>
+                <button class="btn btn-secondary" id="cancelGroupBtn">Отмена</button>
             </div>
         </div>
     </div>
     
-    <!-- МОДАЛКА ДЛЯ ИНФОРМАЦИИ О ГРУППЕ -->
-    <div id="groupInfoModal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-title">Информация о группе</div>
-            
-            <div class="group-info-header">
-                <div class="group-avatar-large" id="groupInfoAvatar">👥</div>
-                <h3 id="groupInfoName"></h3>
-                <div style="color: var(--text-secondary); margin-top: 5px;" id="groupInfoMembers"></div>
-            </div>
-            
-            <div class="info-section">
-                <h3>Участники</h3>
-                <div class="group-members-list" id="groupInfoMembersList"></div>
-            </div>
-            
-            <div class="modal-actions">
-                <button class="btn btn-secondary" style="flex: 1;" id="closeGroupInfoBtn">Закрыть</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- МОДАЛКА ДЛЯ ИНФОРМАЦИИ О КАНАЛЕ + УПРАВЛЕНИЕ -->
-    <div id="channelInfoModal" class="modal hidden">
-        <div class="modal-content" style="max-height: 90vh; overflow-y: auto; padding-bottom: 30px;">
-            <div class="modal-title">Информация о канале</div>
-            
-            <div class="channel-info-header">
-                <div class="channel-avatar-large" id="channelInfoAvatar">📢</div>
-                <h3 id="channelInfoName"></h3>
-                <div style="color: var(--text-secondary); margin-top: 5px;" id="channelInfoDescription"></div>
-                <div class="channel-stats">
-                    <span id="channelInfoSubscribers">👥 0 подписчиков</span>
-                    <span id="channelInfoPosts">📝 0 постов</span>
-                </div>
-                <div>
-                    <button class="channel-subscribe-btn" id="channelSubscribeBtn">Подписаться</button>
-                    <button class="channel-unsubscribe-btn" id="channelUnsubscribeBtn" style="display: none;">Отписаться</button>
-                </div>
-                <div style="margin-top: 8px;">
-                    <span id="channelInviteLink" style="color: var(--primary-light); font-size: 11px;"></span>
-                </div>
-            </div>
-            
-            <div class="info-section" id="channelAdminSection" style="display: none;">
-                <h3>Управление</h3>
-                
-                <div class="member-management">
-                    <h4 style="color: var(--text); margin-bottom: 10px;">Подписчики</h4>
-                    <div class="member-list" id="channelMembersList"></div>
-                    
-                    <button class="add-member-btn" id="addMemberToChannelBtn">➕ Добавить подписчика</button>
-                    
-                    <div style="margin-top: 15px;">
-                        <label style="display: flex; align-items: center; gap: 8px;">
-                            <input type="checkbox" id="onlyAdminsCanPostCheckbox">
-                            <span style="font-size: 13px;">Только админы могут писать</span>
-                        </label>
-                    </div>
-                    
-                    <div style="margin-top: 10px;">
-                        <label>Назначить админа</label>
-                        <select id="makeAdminSelect" class="search-input" style="padding: 10px; margin-top: 5px;">
-                            <option value="">Выберите пользователя</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <button class="btn" style="width: 100%; margin-bottom: 8px;" id="editChannelBtn">✏️ Редактировать канал</button>
-                <button class="btn btn-secondary" style="width: 100%;" id="deleteChannelBtn">🗑️ Удалить канал</button>
-            </div>
-            
-            <div class="modal-actions">
-                <button class="btn btn-secondary" style="flex: 1;" id="closeChannelInfoBtn">Закрыть</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- МОДАЛКА РЕДАКТИРОВАНИЯ КАНАЛА -->
-    <div id="editChannelModal" class="modal hidden">
-        <div class="modal-content" style="max-height: 90vh; overflow-y: auto; padding-bottom: 30px;">
-            <div class="modal-title">Редактировать канал</div>
-            
-            <div class="input-group">
-                <label>Аватар канала</label>
-                <div class="avatar-upload-area" id="editChannelAvatarUpload">
-                    <div style="font-size: 26px; margin-bottom: 8px;">📁</div>
-                    <div>Загрузить изображение</div>
-                    <div style="font-size: 11px; color: #aaa; margin-top: 5px;">JPG, PNG до 10MB</div>
-                </div>
-                <div class="avatar-preview" id="editChannelAvatarPreview" style="width: 70px; height: 70px; margin: 8px auto;"></div>
-            </div>
-            
-            <div class="input-group">
-                <label for="editChannelName">Название канала</label>
-                <input type="text" id="editChannelName" placeholder="Название канала">
-            </div>
-            <div class="input-group">
-                <label for="editChannelDesc">Описание</label>
-                <input type="text" id="editChannelDesc" placeholder="Описание канала">
-            </div>
-            
-            <div class="modal-actions">
-                <button class="btn btn-secondary" style="flex: 1;" id="cancelEditChannelBtn">Отмена</button>
-                <button class="btn" style="flex: 1;" id="saveEditChannelBtn">Сохранить</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- МОДАЛКА ДЛЯ ЗАПИСИ ВИДЕОСООБЩЕНИЙ -->
+    <!-- МОДАЛКА ДЛЯ ЗАПИСИ ВИДЕО -->
     <div id="videoRecordingModal" class="video-recording-modal hidden">
         <div class="video-recording-content">
-            <div class="modal-title">Запись видеосообщения</div>
-            
-            <div class="video-recording-max-time">
-                Максимальная длительность: 60 секунд
-            </div>
-            
+            <div class="modal-title">Запись видео</div>
             <div class="video-recording-timer" id="videoRecordingTimer">00:00</div>
-            
             <div class="video-recording-preview">
                 <video id="videoRecordingPreview" autoplay muted></video>
-                <div id="recordingIndicator" class="recording-indicator" style="display: none;">
+                <div id="recordingIndicator" class="recording-indicator hidden">
                     <div class="recording-dot"></div>
                     Запись...
                 </div>
             </div>
-            
             <div class="video-recording-controls">
-                <button class="camera-switch-btn video-recording-btn" id="cameraSwitchBtn" title="Переключить камеру">
-                    🔄
-                </button>
-                <button class="record-start-btn video-recording-btn" id="recordStartBtn">
-                    ⏺️
-                </button>
-                <button class="record-stop-btn video-recording-btn" id="recordStopBtn" style="display: none;">
-                    ⏹️
-                </button>
+                <button class="camera-switch-btn" id="cameraSwitchBtn">🔄</button>
+                <button class="record-start-btn" id="recordStartBtn">⏺️</button>
+                <button class="record-stop-btn" id="recordStopBtn" style="display: none;">⏹️</button>
             </div>
-            
             <div class="modal-actions">
-                <button class="btn btn-secondary" style="flex: 1;" id="cancelVideoRecordingBtn">Отмена</button>
-                <button class="btn" style="flex: 1;" id="sendVideoMessageBtn">➤ Отправить</button>
+                <button class="btn btn-secondary" id="cancelVideoRecordingBtn">Отмена</button>
+                <button class="btn" id="sendVideoMessageBtn">➤ Отправить</button>
             </div>
         </div>
     </div>
     
-    <!-- КОНТЕКСТНОЕ МЕНЮ -->
-    <div id="contextMenu" class="context-menu hidden">
-        <div class="context-menu-item" id="viewProfileBtn">
-            <span>👁️</span>
-            <span>Просмотреть профиль</span>
-        </div>
-        <div class="context-menu-item" id="editNicknameBtn">
-            <span>✏️</span>
-            <span>Изменить имя</span>
-        </div>
-        <div class="context-menu-divider"></div>
-        <div class="context-menu-item" id="clearChatBtn">
-            <span>🗑️</span>
-            <span>Очистить чат</span>
-        </div>
-        <div class="context-menu-item" id="deleteChatBtn">
-            <span>❌</span>
-            <span>Удалить чат</span>
-        </div>
-    </div>
-    
-    <!-- УВЕДОМЛЕНИЕ О ЗВОНКЕ -->
-    <div id="callNotification" class="call-notification hidden">
-        <h4 id="callNotificationIcon">📞 Входящий звонок</h4>
-        <p id="callerName">Неизвестный абонент</p>
-        <p id="callTypeText" style="font-size: 13px; opacity: 0.8;">Аудиозвонок</p>
-        <div class="call-actions">
-            <button class="call-action-btn accept-call-btn" id="acceptCallBtn">📞 Принять</button>
-            <button class="call-action-btn reject-call-btn" id="rejectCallBtn">❌ Отклонить</button>
+    <!-- МОДАЛКА ПРЕДПРОСМОТРА ВИДЕО -->
+    <div id="videoPreviewModal" class="video-preview-modal hidden">
+        <div class="video-preview-content">
+            <video id="previewedVideo" controls autoplay>
+                Ваш браузер не поддерживает видео.
+            </video>
+            <button class="video-preview-close" id="closeVideoPreviewBtn">×</button>
         </div>
     </div>
     
     <!-- ЗАПРОС РАЗРЕШЕНИЯ НА УВЕДОМЛЕНИЯ -->
     <div id="notificationPermission" class="notification-permission hidden">
-        <p>🔔 Разрешить уведомления о новых сообщениях и звонках?</p>
+        <p>🔔 Разрешить уведомления?</p>
         <div class="notification-permission-buttons">
-            <button class="notification-permission-btn allow-notifications-btn" id="allowNotificationsBtn">Разрешить</button>
+            <button class="notification-permission-btn allow-notifications-btn" id="allowNotificationsBtn">Да</button>
             <button class="notification-permission-btn later-notifications-btn" id="laterNotificationsBtn">Позже</button>
-        </div>
-    </div>
-    
-    <!-- ПРЕВЬЮ ИЗОБРАЖЕНИЙ -->
-    <div id="imagePreviewModal" class="image-preview-modal hidden">
-        <div class="image-preview-content">
-            <img id="previewedImage" src="" alt="" onclick="this.classList.toggle('zoomed')">
-            <button class="image-preview-close" id="closeImagePreviewBtn">×</button>
-        </div>
-    </div>
-    
-    <!-- ПРЕВЬЮ ВИДЕО -->
-    <div id="videoPreviewModal" class="video-preview-modal hidden">
-        <div class="video-preview-content">
-            <video id="previewedVideo" controls>
-                Ваш браузер не поддерживает воспроизведение видео.
-            </video>
-            <button class="video-preview-close" id="closeVideoPreviewBtn">×</button>
-        </div>
-    </div>
-
-    <!-- ПРЕВЬЮ ВИДЕОСООБЩЕНИЙ -->
-    <div id="videoMessagePreviewModal" class="video-message-preview-modal hidden">
-        <div class="video-message-preview-content">
-            <video id="videoMessagePreview" controls>
-                Ваш браузер не поддерживает воспроизведение видео.
-            </video>
-            <button class="video-message-preview-close" id="closeVideoMessagePreviewBtn">×</button>
-        </div>
-    </div>
-
-    <!-- МОДАЛКА ДЛЯ КАСТОМНОЙ РЕАКЦИИ -->
-    <div id="customReactionModal" class="custom-reaction-modal hidden">
-        <div class="custom-reaction-content">
-            <div class="modal-title">Выбери свой смайлик</div>
-            <input type="text" class="custom-reaction-input" id="customReactionInput" placeholder="Введи свой смайлик (например: 🚀)" maxlength="10">
-            <div class="custom-reaction-grid">
-                <div class="custom-reaction-item">👍</div>
-                <div class="custom-reaction-item">❤️</div>
-                <div class="custom-reaction-item">😂</div>
-                <div class="custom-reaction-item">😮</div>
-                <div class="custom-reaction-item">😢</div>
-                <div class="custom-reaction-item">👎</div>
-                <div class="custom-reaction-item">🔥</div>
-                <div class="custom-reaction-item">🎉</div>
-                <div class="custom-reaction-item">💯</div>
-                <div class="custom-reaction-item">🤔</div>
-                <div class="custom-reaction-item">😡</div>
-                <div class="custom-reaction-item">🥳</div>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" id="cancelCustomReactionBtn">Отмена</button>
-                <button class="btn" id="applyCustomReactionBtn">Ок</button>
-            </div>
         </div>
     </div>
     
     <!-- СКРЫТЫЕ ИНПУТЫ -->
     <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
     <input type="file" id="fileUpload" accept="*/*" multiple style="display: none;">
-    <input type="file" id="channelAvatarUpload" accept="image/*" style="display: none;">
-    <input type="file" id="groupAvatarUpload" accept="image/*" style="display: none;">
     
     <!-- ОВЕРЛЕЙ ЗАГРУЗКИ -->
     <div id="loadingOverlay" class="loading-overlay hidden">
@@ -674,9 +302,6 @@
     
     <!-- АУДИО ЭЛЕМЕНТ -->
     <audio id="audioPlayer" style="display: none;"></audio>
-    <audio id="ringtone" loop style="display: none;">
-        <source src="https://assets.mixkit.co/sfx/preview/mixkit-phone-call-ringing-1106.mp3" type="audio/mpeg">
-    </audio>
 
     <script src="app.js" type="module"></script>
 </body>
