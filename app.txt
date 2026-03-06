@@ -135,7 +135,7 @@ let currentReactionMessageId = null;
  * Проверяет, находится ли пользователь онлайн на основе времени последней активности
  * @param {any} lastActive - время последней активности (Timestamp или Date или строка)
  * @returns {boolean} - true если пользователь онлайн
- */
+ */ 
 function isUserOnline(lastActive) {
     if (!lastActive) return false;
     
